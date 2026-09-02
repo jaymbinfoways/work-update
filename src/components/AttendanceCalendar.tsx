@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -14,6 +14,7 @@ import {
   Save,
 } from "lucide-react";
 import { AttendanceStatus } from "@/models/Attendance";
+import { getPersistedMonth, setPersistedMonth } from "@/lib/utils";
 
 interface AttendanceRecord {
   _id?: string;
@@ -36,11 +37,34 @@ export default function AttendanceCalendar({
   initialRecords,
   onAttendanceChanged,
 }: AttendanceCalendarProps) {
-  const [currentDate, setCurrentDate] = useState(() => new Date(2026, 7, 1)); // Default August 2026
+  const [currentDate, setCurrentDate] = useState(() => {
+    const p = getPersistedMonth();
+    if (p) {
+      const parts = p.split("-").map(Number);
+      if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        return new Date(parts[0], parts[1] - 1, 1);
+      }
+    }
+    return new Date();
+  });
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<AttendanceStatus>("PRESENT");
   const [selectedRemarks, setSelectedRemarks] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    const handleSync = () => {
+      const p = getPersistedMonth();
+      if (p) {
+        const parts = p.split("-").map(Number);
+        if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+          setCurrentDate(new Date(parts[0], parts[1] - 1, 1));
+        }
+      }
+    };
+    window.addEventListener("monthFilterChanged", handleSync);
+    return () => window.removeEventListener("monthFilterChanged", handleSync);
+  }, []);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth(); // 0-indexed
@@ -59,12 +83,19 @@ export default function AttendanceCalendar({
     recordsMap.set(r.date, r);
   }
 
+  const updateMonth = (newDate: Date) => {
+    setCurrentDate(newDate);
+    const y = newDate.getFullYear();
+    const m = String(newDate.getMonth() + 1).padStart(2, "0");
+    setPersistedMonth(`${y}-${m}`);
+  };
+
   const prevMonth = () => {
-    setCurrentDate(new Date(year, month - 1, 1));
+    updateMonth(new Date(year, month - 1, 1));
   };
 
   const nextMonth = () => {
-    setCurrentDate(new Date(year, month + 1, 1));
+    updateMonth(new Date(year, month + 1, 1));
   };
 
   const handleDayClick = (dayNumber: number) => {
@@ -137,7 +168,7 @@ export default function AttendanceCalendar({
             <ChevronLeft className="w-4 h-4" />
           </button>
           <button
-            onClick={() => setCurrentDate(new Date())}
+            onClick={() => updateMonth(new Date())}
             className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition"
           >
             Today

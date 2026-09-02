@@ -40,6 +40,59 @@ const DEPLOYMENT_COLORS: Record<string, string> = {
   NOT_APPLICABLE: "#94a3b8", // slate-400
 };
 
+// Custom Tooltip for Area Chart
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const CustomAreaTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 px-3.5 py-2.5 rounded-xl shadow-2xl text-xs space-y-1">
+        <div className="text-slate-400 font-medium">Date: {label}</div>
+        <div className="text-blue-400 font-mono font-bold text-sm">
+          {payload[0].value} {payload[0].value === 1 ? "task" : "tasks"} completed
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
+// Custom Tooltip for Deployment Donut Chart
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const CustomPieTooltip = ({ active, payload }: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0];
+    const color = data.payload?.color || data.color || "#22d3ee";
+    return (
+      <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 px-3.5 py-2.5 rounded-xl shadow-2xl text-xs space-y-1 min-w-[120px]">
+        <div className="flex items-center space-x-2">
+          <span className="w-2.5 h-2.5 rounded-full ring-2 ring-white/20" style={{ backgroundColor: color }} />
+          <span className="text-slate-200 font-bold uppercase tracking-wider text-[11px]">{data.name}</span>
+        </div>
+        <div className="text-white font-mono font-bold text-sm pl-4">
+          {data.value} {data.value === 1 ? "task" : "tasks"}
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
+// Custom Tooltip for Module Bar Chart
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const CustomBarTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 px-3.5 py-2.5 rounded-xl shadow-2xl text-xs space-y-1">
+        <div className="text-slate-200 font-bold">{label}</div>
+        <div className="text-indigo-400 font-mono font-bold text-sm">
+          {payload[0].value} {payload[0].value === 1 ? "task" : "tasks"} completed
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
 export default function Charts({ dailyActivity, moduleStats, deployments }: ChartsProps) {
   // Prepare deployment pie data
   const deploymentData = Object.entries(deployments)
@@ -49,6 +102,8 @@ export default function Charts({ dailyActivity, moduleStats, deployments }: Char
       value: count,
       color: DEPLOYMENT_COLORS[status] || "#64748b",
     }));
+
+  const totalDeployments = deploymentData.reduce((acc, curr) => acc + curr.value, 0);
 
   // Format daily dates for axis (DD/MM)
   const activityData = dailyActivity.map((item) => {
@@ -96,17 +151,7 @@ export default function Charts({ dailyActivity, moduleStats, deployments }: Char
                   tickLine={false}
                   allowDecimals={false}
                 />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#0f172a",
-                    border: "1px solid #334155",
-                    borderRadius: "12px",
-                    color: "#f8fafc",
-                    fontSize: "12px",
-                  }}
-                  formatter={(value: number) => [`${value} tasks`, "Volume"]}
-                  labelFormatter={(label) => `Date: ${label}`}
-                />
+                <Tooltip content={<CustomAreaTooltip />} />
                 <Area
                   type="monotone"
                   dataKey="tasks"
@@ -125,51 +170,52 @@ export default function Charts({ dailyActivity, moduleStats, deployments }: Char
         </div>
       </div>
 
-      {/* 2. Deployment Status Distribution */}
+      {/* 2. Deployment Status Distribution Donut */}
       <div className="glass-panel rounded-2xl p-6 flex flex-col justify-between">
         <div className="mb-4">
           <h3 className="text-base font-bold text-slate-100">Deployment Distribution</h3>
           <p className="text-xs text-slate-400">Dev, UAT, Production &amp; Pending</p>
         </div>
 
-        <div className="h-52 w-full flex items-center justify-center">
+        <div className="relative h-52 w-full flex items-center justify-center">
           {deploymentData.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#0f172a",
-                    border: "1px solid #334155",
-                    borderRadius: "12px",
-                    color: "#f8fafc",
-                    fontSize: "12px",
-                  }}
-                  formatter={(val: number) => [`${val} tasks`, "Deployments"]}
-                />
-                <Pie
-                  data={deploymentData}
-                  innerRadius={50}
-                  outerRadius={75}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {deploymentData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
+            <>
+              {/* Donut center metrics */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-0">
+                <span className="text-2xl font-extrabold text-white font-mono">{totalDeployments}</span>
+                <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Tasks</span>
+              </div>
+
+              <ResponsiveContainer width="100%" height="100%" className="relative z-10">
+                <PieChart>
+                  <Tooltip content={<CustomPieTooltip />} />
+                  <Pie
+                    data={deploymentData}
+                    innerRadius={52}
+                    outerRadius={76}
+                    paddingAngle={4}
+                    dataKey="value"
+                    stroke="#090d16"
+                    strokeWidth={2}
+                  >
+                    {deploymentData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+            </>
           ) : (
             <div className="text-slate-500 text-sm">No deployment records</div>
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800/80">
+        <div className="grid grid-cols-2 gap-2 pt-3 border-t border-slate-800/80">
           {deploymentData.map((d) => (
             <div key={d.name} className="flex items-center space-x-2 text-xs">
               <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.color }} />
               <span className="text-slate-300 font-medium">{d.name}:</span>
-              <span className="text-slate-400 font-mono">{d.value}</span>
+              <span className="text-white font-mono font-bold">{d.value}</span>
             </div>
           ))}
         </div>
@@ -197,16 +243,7 @@ export default function Charts({ dailyActivity, moduleStats, deployments }: Char
                   textAnchor="end"
                 />
                 <YAxis stroke="#475569" tick={{ fill: "#94a3b8", fontSize: 11 }} allowDecimals={false} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#0f172a",
-                    border: "1px solid #334155",
-                    borderRadius: "12px",
-                    color: "#f8fafc",
-                    fontSize: "12px",
-                  }}
-                  formatter={(val: number) => [`${val} tasks`, "Total"]}
-                />
+                <Tooltip content={<CustomBarTooltip />} />
                 <Bar dataKey="taskCount" fill="#6366f1" radius={[6, 6, 0, 0]}>
                   {moduleStats.map((_, index) => (
                     <Cell

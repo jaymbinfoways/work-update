@@ -5,6 +5,8 @@ import AttendanceCalendar from "@/components/AttendanceCalendar";
 import { CalendarCheck, Home, UserX, Briefcase } from "lucide-react";
 import StatCard from "@/components/StatCard";
 
+import { getPersistedMonth, formatMonthLabel } from "@/lib/utils";
+
 interface AttendanceRecord {
   _id?: string;
   date: string;
@@ -21,6 +23,7 @@ interface AttendanceRecord {
 export default function AttendancePage() {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeMonth, setActiveMonth] = useState("");
 
   const fetchAttendance = async () => {
     setLoading(true);
@@ -38,12 +41,20 @@ export default function AttendancePage() {
   };
 
   useEffect(() => {
+    setActiveMonth(getPersistedMonth());
     fetchAttendance();
+
+    const handleSync = () => {
+      setActiveMonth(getPersistedMonth());
+    };
+    window.addEventListener("monthFilterChanged", handleSync);
+    return () => window.removeEventListener("monthFilterChanged", handleSync);
   }, []);
 
-  const presentCount = records.filter((r) => r.status === "PRESENT").length;
-  const wfhCount = records.filter((r) => r.status === "WFH").length;
-  const leaveCount = records.filter((r) => r.status === "LEAVE").length;
+  const monthRecords = activeMonth ? records.filter((r) => r.date.startsWith(activeMonth)) : records;
+  const presentCount = monthRecords.filter((r) => r.status === "PRESENT").length;
+  const wfhCount = monthRecords.filter((r) => r.status === "WFH").length;
+  const leaveCount = monthRecords.filter((r) => r.status === "LEAVE").length;
   const workingDays = presentCount + wfhCount;
 
   return (
@@ -51,7 +62,7 @@ export default function AttendancePage() {
       <div>
         <h1 className="text-2xl font-extrabold text-white">Attendance Calendar</h1>
         <p className="text-xs text-slate-400">
-          Track in-office, remote (WFH), leave days, and see corresponding daily work updates
+          Showing stats for <strong className="text-slate-200">{formatMonthLabel(activeMonth)}</strong> &bull; Track in-office, remote (WFH), and leave days
         </p>
       </div>
 

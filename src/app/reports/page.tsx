@@ -13,6 +13,13 @@ import {
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
+import {
+  getPersistedMonth,
+  setPersistedMonth,
+  getMonthOptions,
+  formatMonthLabel,
+} from "@/lib/utils";
+
 interface ReportData {
   month: string;
   attendanceCards: {
@@ -37,13 +44,26 @@ interface ModuleItem {
 }
 
 export default function ReportsPage() {
-  const [selectedMonth, setSelectedMonth] = useState("2026-08"); // August 2026 default
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [monthOptions, setMonthOptions] = useState<{ value: string; label: string }[]>([]);
   const [report, setReport] = useState<ReportData | null>(null);
   const [modules, setModules] = useState<ModuleItem[]>([]);
   const [deployments, setDeployments] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    setSelectedMonth(getPersistedMonth());
+    setMonthOptions(getMonthOptions());
+
+    const handleSync = () => {
+      setSelectedMonth(getPersistedMonth());
+    };
+    window.addEventListener("monthFilterChanged", handleSync);
+    return () => window.removeEventListener("monthFilterChanged", handleSync);
+  }, []);
+
   const fetchReport = async () => {
+    if (selectedMonth === undefined) return;
     setLoading(true);
     try {
       const [sumRes, modRes, depRes] = await Promise.all([
@@ -128,12 +148,18 @@ export default function ReportsPage() {
         <div className="flex items-center space-x-2.5">
           <select
             value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value;
+              setSelectedMonth(val);
+              setPersistedMonth(val);
+            }}
             className="glass-input text-xs px-3 py-2 rounded-xl text-white font-medium"
           >
-            <option value="2026-08">August 2026</option>
-            <option value="2026-09">September 2026</option>
-            <option value="2026-07">July 2026</option>
+            {monthOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
             <option value="">All Time</option>
           </select>
 
@@ -164,7 +190,7 @@ export default function ReportsPage() {
               MONTHLY ENGINEERING BRIEF
             </span>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-white print:text-black mt-1">
-              Monthly Report &bull; {selectedMonth || "All Time"}
+              Monthly Report &bull; {formatMonthLabel(selectedMonth)}
             </h2>
             <p className="text-xs text-slate-400 print:text-slate-600 mt-1">
               Daily Work &amp; Attendance Performance Summary

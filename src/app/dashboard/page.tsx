@@ -19,6 +19,13 @@ import StatCard from "@/components/StatCard";
 import Charts from "@/components/Charts";
 import AddUpdateModal from "@/components/AddUpdateModal";
 
+import {
+  getPersistedMonth,
+  setPersistedMonth,
+  getMonthOptions,
+  formatMonthLabel,
+} from "@/lib/utils";
+
 interface DashboardData {
   month: string;
   attendanceCards: {
@@ -53,9 +60,22 @@ export default function DashboardPage() {
   const [deployments, setDeployments] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [selectedMonth, setSelectedMonth] = useState("2026-08"); // Default August 2026
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [monthOptions, setMonthOptions] = useState<{ value: string; label: string }[]>([]);
+
+  useEffect(() => {
+    setSelectedMonth(getPersistedMonth());
+    setMonthOptions(getMonthOptions());
+
+    const handleSync = () => {
+      setSelectedMonth(getPersistedMonth());
+    };
+    window.addEventListener("monthFilterChanged", handleSync);
+    return () => window.removeEventListener("monthFilterChanged", handleSync);
+  }, []);
 
   const loadData = async () => {
+    if (selectedMonth === undefined) return;
     setLoading(true);
     try {
       const [sumRes, modRes, depRes] = await Promise.all([
@@ -79,7 +99,11 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    loadData();
+    if (selectedMonth !== "") {
+      loadData();
+    } else {
+      loadData();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMonth]);
 
@@ -87,6 +111,9 @@ export default function DashboardPage() {
     try {
       const res = await fetch("/api/seed", { method: "POST" });
       if (res.ok) {
+        // If user seeds demo, switch to August 2026 to immediately see the seeded data
+        setSelectedMonth("2026-08");
+        setPersistedMonth("2026-08");
         loadData();
       }
     } catch (err) {
@@ -104,7 +131,7 @@ export default function DashboardPage() {
               <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold uppercase tracking-wider">
                 Work &amp; Attendance Command Center
               </span>
-              <span className="text-xs text-slate-400">August 2026</span>
+              <span className="text-xs text-slate-400">{formatMonthLabel(selectedMonth)}</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
               Daily Work Updates &amp; Attendance
@@ -143,11 +170,18 @@ export default function DashboardPage() {
           <span className="text-sm font-semibold text-slate-200">Summary Period:</span>
           <select
             value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value;
+              setSelectedMonth(val);
+              setPersistedMonth(val);
+            }}
             className="glass-input text-xs px-3 py-1.5 rounded-lg text-white font-medium"
           >
-            <option value="2026-08">August 2026 (Specification Demo)</option>
-            <option value="2026-09">September 2026 (Current Month)</option>
+            {monthOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
             <option value="">All Time</option>
           </select>
         </div>
