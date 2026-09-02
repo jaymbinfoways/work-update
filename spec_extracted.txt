@@ -1,0 +1,223 @@
+Daily Work & Attendance Tracker
+Technical Specification & Development Brief
+1. Project Overview
+Build a personal Daily Work Update & Attendance Management System. The application allows the user to enter daily work updates in natural language, automatically clean and correct the text using OpenAI, extract structured information, and store it in a database.
+The application must provide:
+Daily work update management.
+Attendance tracking: Present, WFH, Leave, Holiday, Half Day.
+Module/project-wise work history.
+Deployment status tracking: Dev, UAT, Production, Pending.
+Search and filters.
+Monthly attendance statistics.
+Module-wise statistics and history.
+Deployment history.
+Monthly summaries and exports.
+2. Recommended Architecture
+User  ↓Frontend / API  ↓AI Service (OpenAI)  ↓Structured JSON  ↓Backend validation + business logic  ↓PostgreSQL database  ↓Dashboard / Reports / SearchOptional:Database → Google Sheets sync/exportExternal client / ChatGPT integration → Your API
+3. Recommended Technology Stack
+Frontend: Next.js + TypeScript
+UI: Tailwind CSS + shadcn/ui
+Charts: Recharts
+Forms: React Hook Form + Zod
+Backend: Next.js API routes/server actions or separate Node.js backend
+Database: PostgreSQL
+ORM: Prisma
+AI: OpenAI API with Structured Outputs
+Authentication: Secure session/JWT-based authentication
+4. Core Design Principle
+Do not store only the final formatted paragraph. Always store both the original raw input and the structured/processed information. This allows future searching, auditing, reporting, and re-processing.
+{  "raw_input": "helpdesk added dynamic theme config and fixed code",  "processed": {    "module": "Helpdesk",    "status": "DEV",    "tasks": [      {        "description": "Implemented dynamic theme configuration and updated the code accordingly."      }    ]  }}
+5. Database Model
+5.1 User
+User----idnameemailpasswordHashcreatedAtupdatedAt
+5.2 Attendance
+Attendance----------iduserIddatestatusremarkscreatedAtupdatedAtStatus:PRESENTWFHLEAVEHOLIDAYWEEKENDHALF_DAYUNMARKED
+5.3 DailyUpdate
+DailyUpdate-----------iduserIddaterawInputformattedOutputattendanceStatuscreatedAtupdatedAtRecommended constraint:userId + date = unique
+5.4 WorkItem
+WorkItem--------iddailyUpdateIdmoduleIddeploymentStatusdescriptionoriginalDescriptionsortOrdercreatedAtupdatedAt
+5.5 Module
+Module------idnameisActivecreatedAtupdatedAt
+Initial seed modules:
+Filenote
+Indent
+Filenote & Indent
+Helpdesk
+MOM
+Masters
+Incident
+Leadership Dashboard
+Site Dashboard
+Base Login
+5.6 Deployment Status
+DEVUATPRODUCTIONPENDINGNOT_APPLICABLE
+5.7 Optional AuditLog
+AuditLog--------iduserIdentityentityIdactionoldValuenewValuecreatedAtActions:CREATEUPDATEDELETEAI_PROCESSEXPORT
+6. AI Processing
+The AI must:
+Correct grammar and spelling.
+Standardize module names when possible.
+Standardize deployment statuses.
+Extract individual tasks.
+Preserve the user's original meaning.
+Never invent work.
+Return structured JSON matching the strict schema.
+Generate a clean formatted version for display.
+7. AI Output Schema
+{  "date": "2026-08-07",  "attendance": "UNMARKED",  "formatted_output": "07-08-26\n\nHelpdesk (Deployed on Dev)\n...",  "work_items": [    {      "module": "Helpdesk",      "deployment_status": "DEV",      "tasks": [        {          "description": "Implemented dynamic theme configuration and updated the code accordingly."        }      ]    }  ]}
+8. AI System Rules
+You are a professional work-update formatter.Rules:1. Never invent a task.2. Never remove a meaningful task.3. Preserve the user's original meaning.4. Correct grammar and spelling.5. Use professional technical language.6. Standardize module names when possible.7. Standardize deployment statuses.8. Extract every task separately.9. If deployment status is not provided, use NOT_APPLICABLE.10. Do not assume attendance unless explicitly provided.11. Normalize provided dates to YYYY-MM-DD.12. Return data according to the provided strict JSON schema.13. Generate a clean formatted_output.14. Keep descriptions concise.15. Do not add explanations outside the requested structured output.
+9. API Endpoints
+POST /api/updates/process — Process raw text with AI and return structured preview.
+POST /api/updates — Create/save a daily update.
+GET /api/updates — List updates with pagination and filters.
+GET /api/updates/:id — Get one update.
+PUT /api/updates/:id — Edit an update.
+DELETE /api/updates/:id — Delete an update.
+GET /api/attendance — List attendance records.
+POST /api/attendance — Create attendance record.
+PUT /api/attendance/:id — Update attendance.
+DELETE /api/attendance/:id — Delete attendance.
+GET /api/dashboard/summary — Monthly summary.
+GET /api/dashboard/modules — Module statistics.
+GET /api/dashboard/deployments — Deployment statistics.
+10. Update API Filters
+GET /api/updates?page=1&limit=20  &from=2026-08-01  &to=2026-08-31  &module=Helpdesk  &deploymentStatus=DEV  &search=theme
+11. Frontend Pages
+/dashboard — main dashboard
+/updates — daily update history
+/updates/new — add/process update
+/updates/:id — update details/edit
+/attendance — attendance calendar and management
+/modules — module management/history
+/reports — monthly reports
+/settings — application and integration settings
+12. Dashboard Requirements
+Attendance cards:
+Present
+WFH
+Leave
+Working Days
+Work cards:
+Total Updates
+Total Tasks
+Modules Worked
+Charts:
+Attendance by day.
+Work updates per day.
+Tasks by module.
+Deployment status distribution.
+Monthly work trend.
+13. Daily Update Workflow
+Dashboard  ↓Add Today's Update  ↓Paste raw update  ↓Process with AI  ↓Review AI result  ↓Edit if necessary  ↓Save Update  ↓Done
+Important: Do NOT automatically save AI output. Always show a preview and require user confirmation before saving.
+14. Example Raw Input
+07-08-26Filenote & Indent (Deployed On dev)• Validation for same file upload when error comes from backend.Helpdesk (Deployed On dev)• Implemented dynamic theme configuration and updated code accordingly.Mom (Pending to deploy)• Added Email search for users in create meeting.Masters (Pending to deploy)• Added search for edit sites modal for all stackholder type.
+15. Example Formatted Output
+07-08-26Filenote & Indent (Deployed on Dev)• Added validation to prevent uploading the same file when a backend validation error occurs.Helpdesk (Deployed on Dev)• Implemented dynamic theme configuration and updated the code accordingly.MOM (Pending to Deploy)• Added email-based user search in the Create Meeting flow.Masters (Pending to Deploy)• Added search functionality in the Edit Sites modal for all stakeholder types.
+16. Attendance Logic
+Do not automatically assume that an update exists means the user was Present.
+Explicit Present → PRESENT.
+Explicit WFH → WFH.
+Explicit Leave → LEAVE.
+Explicit Holiday → HOLIDAY.
+No attendance information → UNMARKED.
+Provide a convenient 'Mark today as Present' option when saving an update.
+17. Attendance Calendar
+Provide a monthly calendar. Clicking a date should show its attendance and daily work update. Dates should be markable as Present, WFH, Leave, Holiday, Half Day, or Unmarked.
+18. Search & Filters
+Global search should search:
+Module name
+Task description
+Raw input
+Formatted output
+Deployment status
+Date
+Filters:
+Date range
+Module
+Attendance
+Deployment status
+Keyword
+19. Module History
+Clicking a module should show all historical tasks grouped by date, e.g. Helpdesk → all Helpdesk work across previous dates.
+20. Monthly Report
+August 2026AttendancePresent: 18WFH: 3Leave: 1Holiday: 4WorkUpdates: 19Tasks: 67Top Modules1. Helpdesk2. Incident3. MastersDeploymentDev: 32UAT: 7Production: 12Pending: 5
+Provide Export Excel and Export PDF options.
+21. Google Sheets Integration
+Google Sheets should NOT be the primary database. PostgreSQL is the source of truth. Google Sheets is an optional sync/export destination.
+Suggested sheets:
+Daily Updates: Date, Attendance, Module, Deployment, Task.
+Attendance: Date, Status, Remarks.
+Monthly Summary: Month, Present, WFH, Leave, Holiday, Working Days, Total Tasks.
+22. Future External API / ChatGPT Integration
+POST /api/external/daily-update{  "text": "Today's update..."}Response:{  "success": true,  "data": {    "date": "2026-08-07",    "work_items": [...]  }}
+Keep the processing/storage API independent from the frontend so that a future ChatGPT integration, browser extension, mobile app, or other client can submit updates.
+23. Security
+Authentication required.
+Password hashing.
+Secure sessions/JWT.
+Server-side OpenAI API key only.
+Environment variables for secrets.
+Zod validation for API requests.
+Rate limiting for public/external endpoints.
+Input validation and sanitization.
+Database credentials must never be exposed to the frontend.
+Audit logging for important changes.
+24. Environment Variables
+DATABASE_URL=OPENAI_API_KEY=AUTH_SECRET=GOOGLE_CLIENT_ID=GOOGLE_CLIENT_SECRET=GOOGLE_SHEET_ID=
+25. Development Phases
+Phase 1 — Core
+Authentication
+Database
+Modules
+Daily Updates
+Attendance
+CRUD APIs
+Phase 2 — AI
+OpenAI integration
+Grammar correction
+Task extraction
+Structured JSON
+Preview and approval
+Phase 3 — Dashboard
+Monthly statistics
+Charts
+Module statistics
+Deployment statistics
+Phase 4 — Search & Reports
+Global search
+Filters
+Monthly report
+Excel export
+PDF export
+Phase 5 — Integrations
+Google Sheets
+External API
+API authentication
+Future ChatGPT integration
+26. Definition of Done
+1. User can log in.
+2. User can enter raw daily updates.
+3. AI can correct grammar and format the update.
+4. AI identifies modules and deployment statuses.
+5. User can review/edit before saving.
+6. Original raw input is preserved.
+7. Updates can be searched and filtered.
+8. Attendance can be managed.
+9. Monthly attendance can be viewed.
+10. Module-wise history can be viewed.
+11. Deployment statistics can be viewed.
+12. Monthly reports can be generated.
+13. Data can be exported.
+14. Google Sheets can optionally be synchronized.
+15. External API is available for future integrations.
+16. No work is invented or silently removed by AI.
+27. IDE / Coding Agent Instructions
+Give the following instructions to the coding agent:
+Build this application incrementally according to this specification.1. First inspect the existing project structure if one exists.2. Do not rewrite unrelated existing code.3. Use TypeScript strictly.4. Use Zod for request validation.5. Keep OpenAI integration server-side only.6. Use OpenAI Structured Outputs with a strict schema for AI extraction.7. Do not rely on regex/string parsing for AI-generated structured data.8. Always preserve raw user input.9. Never invent work items when processing text.10. Keep business logic separate from UI components.11. Implement Phase 1 first and verify it works.12. Then implement Phase 2, followed by the remaining phases.13. Add database migrations and seed data.14. Add useful error handling and loading states.15. Add tests for core APIs, AI parsing/schema validation, attendance logic, and update creation.16. Keep the application easy to extend for Google Sheets and external API integrations.
+AI integration note: use the current official OpenAI SDK/API approach available at implementation time. Prefer structured parsing/strict schema output rather than free-form JSON.
+28. Recommended Final User Experience
+Every day:User opens dashboard      ↓Clicks "+ Add Today's Update"      ↓Pastes whatever they wrote      ↓Clicks "Process with AI"      ↓AI fixes grammar + extracts structure      ↓User reviews      ↓Clicks "Save Update"      ↓Attendance/work history/dashboard automatically updateTarget: normal daily update should take less than 30 seconds.
+29. Key Product Decision
+PostgreSQL should be the source of truth. Google Sheets should be an optional export/synchronization layer. This provides reliable search, relationships, statistics, reporting, and future integrations while still allowing the user to access the information in a spreadsheet.
