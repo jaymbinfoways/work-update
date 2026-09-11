@@ -5,12 +5,19 @@ import connectToDatabase from "./mongodb";
 export async function getOrCreateDefaultUser(): Promise<IUser> {
   await connectToDatabase();
   
-  let user = await User.findOne({ email: "admin@tracker.local" });
+  const email = process.env.DEFAULT_USER_EMAIL || "admin@workupdate.com";
+  const name = process.env.DEFAULT_USER_NAME || "Jay Infoways";
+
+  let user = await User.findOne({ email });
+  if (!user) {
+    user = await User.findOne();
+  }
+
   if (!user) {
     const passwordHash = await bcrypt.hash("admin123", 10);
     user = await User.create({
-      name: "Lead Developer",
-      email: "admin@tracker.local",
+      name,
+      email,
       passwordHash,
     });
   }

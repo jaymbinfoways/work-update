@@ -1,6 +1,13 @@
 import mongoose from "mongoose";
+import dns from "dns";
 import * as fs from "fs";
 import * as path from "path";
+
+try {
+  dns.setServers(["8.8.8.8", "8.8.4.4"]);
+} catch {
+  // Ignore
+}
 
 // Load .env.local if present
 try {
